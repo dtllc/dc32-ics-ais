@@ -1,0 +1,3 @@
+[submodule "ais-simulator"]
+	path = ais-simulator
+	url = https://github.com/Mictronics/ais-simulator
