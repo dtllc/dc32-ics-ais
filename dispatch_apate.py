@@ -89,7 +89,7 @@ def transmit_message(ws: WebSocket, msg: ANY_MESSAGE) -> None:
     encoded = encode_message(msg)
 
     for i in range(TRANSMIT_COUNT):
-        logger.debug("Transmission attempt %s: %s", i, encoded)
+        logger.debug("Transmission attempt %s: %s", i + 1, encoded)
         ws.send(encoded)
 
 
