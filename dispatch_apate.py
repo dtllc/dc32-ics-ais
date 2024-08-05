@@ -16,12 +16,12 @@ import logging
 import os
 import sys
 import time
-from collections.abc import Iterator
 from os import PathLike
 from pathlib import Path
 from typing import Final
 
-from pyais import decode
+from pyais import ANY_MESSAGE, decode
+from pyais.exceptions import MissingMultipartMessageException
 from websocket import WebSocket, create_connection
 
 _log_handler = logging.StreamHandler(sys.stdout)
@@ -38,8 +38,9 @@ TRANSMIT_COUNT: Final[int] = 2
 assert TRANSMIT_COUNT >= 1
 
 
-def decode_replay_file(ais_file: PathLike) -> Iterator[tuple[float, str]]:
-    """Parses an `apate.pl` replay file into an iterator of (timestamp, frame) pairs."""
+def decode_replay_file(ais_file: PathLike) -> dict[float, list[str]]:
+    """Parses an `apate.pl` replay file into a mapping of timestamp to AIVDM frames."""
+    mapping: dict[float, list[str]] = {}
     i = 1
 
     with open(ais_file, "r") as f:
@@ -49,23 +50,43 @@ def decode_replay_file(ais_file: PathLike) -> Iterator[tuple[float, str]]:
             if len(split) != 2:
                 raise RuntimeError(f"Replay file not formatted corrected on line {i}")
 
-            seconds = int(split[0])
+            seconds = float(split[0])
             frame = split[1].rstrip()
+
+            if seconds in mapping:
+                mapping[seconds].append(frame)
+            else:
+                mapping[seconds] = [frame]
+
+    return mapping
+
+
+def decode_batch(batch: list[str]) -> list[ANY_MESSAGE]:
+    """Converts batches of AIVDM frames into full AIS messages."""
+    if not batch:
+        return []
+
+    i = 0
+    cursor = [batch[i]]
+
+    while i < len(batch):
+        try:
+            return [decode(*cursor)] + decode_batch(batch[i + 1 :])
+        except MissingMultipartMessageException:
+            cursor.append(batch[i + 1])
             i += 1
-            yield (float(seconds), frame)
+
+    raise MissingMultipartMessageException
 
 
-def encode_aivdm(frame: str) -> str:
-    """Converts the AIVDM frame into a sequence of '0' and '1' ASCII characters for `ais-simulator`."""
-    try:
-        return decode(frame).to_bitarray().to01()
-    except Exception as error:
-        logger.error("Unable to coerce AIVDM frame: %s", error)
-        return ""
+def encode_message(msg: ANY_MESSAGE) -> str:
+    """Converts AIS message to ASCII-encoded binary."""
+    return msg.to_bitarray().to01()
 
 
-def dispatch_aivdm(ws: WebSocket, frame: str) -> None:
-    encoded = encode_aivdm(frame)
+def transmit_message(ws: WebSocket, msg: ANY_MESSAGE) -> None:
+    """Transmits the given AIS message over WebSocket to the `ais-simulator.py` server."""
+    encoded = encode_message(msg)
 
     for i in range(TRANSMIT_COUNT):
         logger.debug("Transmission attempt %s: %s", i, encoded)
@@ -89,12 +110,9 @@ def main(av: list[str]) -> int:
     start_time = time.time()
     cursor = 0.0
 
-    while True:
-        try:
-            timestamp, frame = next(ais_replay)
-        except StopIteration:
-            logger.warning("AIS replay file exhausted.")
-            break
+    for timestamp in sorted(ais_replay.keys()):
+        batch = ais_replay[timestamp]
+        messages = decode_batch(batch)
 
         if timestamp > cursor:
             drift = cursor - (time.time() - start_time)
@@ -103,8 +121,9 @@ def main(av: list[str]) -> int:
             time.sleep(sleep_duration)
             cursor = time.time() - start_time
 
-        logger.info("[%s] Transmitting: (%s, %s)", cursor, timestamp, frame)
-        dispatch_aivdm(ws, frame)
+        for msg in messages:
+            logger.info("[%s] Transmitting: (%s, %s)", cursor, timestamp, msg)
+            transmit_message(ws, msg)
 
     ws.close()
 
