@@ -48,7 +48,7 @@ def decode_replay_file(ais_file: PathLike) -> dict[float, list[str]]:
             split = line.split("-", 1)
 
             if len(split) != 2:
-                raise RuntimeError(f"Replay file not formatted corrected on line {i}")
+                raise RuntimeError(f"Replay file not formatted correctly on line {i}.")
 
             seconds = float(split[0])
             frame = split[1].rstrip()
