@@ -76,7 +76,7 @@ def _decode_batch(batch: list[str]) -> list[ANY_MESSAGE]:
             cursor.append(batch[i + 1])
             i += 1
 
-    raise MissingMultipartMessageException
+    return [decode(*cursor)]
 
 
 @safe
