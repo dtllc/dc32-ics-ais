@@ -1,2 +1,3 @@
-websocket-client==1.8.0
 pyais==2.7.0
+returns==0.22.0
+websocket-client==1.8.0

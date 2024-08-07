@@ -22,6 +22,7 @@ from typing import Final
 
 from pyais import ANY_MESSAGE, decode
 from pyais.exceptions import MissingMultipartMessageException
+from returns.result import Failure, Success, safe
 from websocket import WebSocket, create_connection
 
 _log_handler = logging.StreamHandler(sys.stdout)
@@ -43,7 +44,7 @@ def decode_replay_file(ais_file: PathLike) -> dict[float, list[str]]:
     mapping: dict[float, list[str]] = {}
     i = 1
 
-    with open(ais_file, "r") as f:
+    with open(ais_file, "r", encoding="utf-8") as f:
         for line in f:
             split = line.split("-", 1)
 
@@ -61,8 +62,7 @@ def decode_replay_file(ais_file: PathLike) -> dict[float, list[str]]:
     return mapping
 
 
-def decode_batch(batch: list[str]) -> list[ANY_MESSAGE]:
-    """Converts batches of AIVDM frames into full AIS messages."""
+def _decode_batch(batch: list[str]) -> list[ANY_MESSAGE]:
     if not batch:
         return []
 
@@ -71,12 +71,18 @@ def decode_batch(batch: list[str]) -> list[ANY_MESSAGE]:
 
     while i < len(batch):
         try:
-            return [decode(*cursor)] + decode_batch(batch[i + 1 :])
+            return [decode(*cursor)] + _decode_batch(batch[i + 1 :])
         except MissingMultipartMessageException:
             cursor.append(batch[i + 1])
             i += 1
 
     raise MissingMultipartMessageException
+
+
+@safe
+def decode_batch(batch: list[str]) -> list[ANY_MESSAGE]:
+    """Converts batches of AIVDM frames into full AIS messages."""
+    return _decode_batch(batch)
 
 
 def encode_message(msg: ANY_MESSAGE) -> str:
@@ -94,6 +100,7 @@ def transmit_message(ws: WebSocket, msg: ANY_MESSAGE) -> None:
 
 
 def main(av: list[str]) -> int:
+    """Parses the replay file provided over `argv` and dispatches AIS messages with a time delay."""
     if len(av) != 2:
         print("Usage: dispatch_apate.py DATA_replay.txt", file=sys.stderr)
         return os.EX_USAGE
@@ -112,18 +119,21 @@ def main(av: list[str]) -> int:
 
     for timestamp in sorted(ais_replay.keys()):
         batch = ais_replay[timestamp]
-        messages = decode_batch(batch)
 
-        if timestamp > cursor:
-            drift = cursor - (time.time() - start_time)
-            sleep_duration = timestamp - cursor + drift
-            logger.debug("Sleeping for %s seconds.", sleep_duration)
-            time.sleep(sleep_duration)
-            cursor = time.time() - start_time
+        match decode_batch(batch):
+            case Success(messages):
+                if timestamp > cursor:
+                    drift = cursor - (time.time() - start_time)
+                    sleep_duration = timestamp - cursor + drift
+                    logger.debug("Sleeping for %s seconds.", sleep_duration)
+                    time.sleep(sleep_duration)
+                    cursor = time.time() - start_time
 
-        for msg in messages:
-            logger.info("[%s] Transmitting: (%s, %s)", cursor, timestamp, msg)
-            transmit_message(ws, msg)
+                for msg in messages:
+                    logger.info("[%s] Transmitting: (%s, %s)", cursor, timestamp, msg)
+                    transmit_message(ws, msg)
+            case Failure(error):
+                logger.error("Failed to decode AIS messages: %s", error)
 
     ws.close()
 
