@@ -37,5 +37,4 @@ Now that you have a `DATA_replay.txt` file, go ahead and run `dispatch_apate.py`
 
 # TODO
 - Examples directory for `apate.pl` output
-- Screenshots/screencasts
 - Link to VirtualBox image
