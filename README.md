@@ -34,7 +34,3 @@ After downloading the AIS tooling, read the instructions and skim through the sc
 First, run `pip install -r requirements.txt` to get the required Python libraries installed.
 
 Now that you have a `DATA_replay.txt` file, go ahead and run `dispatch_apate.py` (providing the replay file as an argument). This will connect to the running `ais-simulator.py` server and transmit the AIS messages over your SDR. Observe the logs and check to see if you (or your lab partner) are able to receive the transmitted messages. Don't hesitate to reach out for help if you're running into issues on this step.
-
-# TODO
-- Examples directory for `apate.pl` output
-- Link to VirtualBox image
