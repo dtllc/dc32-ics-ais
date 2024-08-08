@@ -35,7 +35,7 @@ logger.addHandler(_log_handler)
 logger.setLevel(logging.DEBUG)
 
 AIS_WEBSOCKET: Final[str] = "ws://localhost:52002/"
-TRANSMIT_COUNT: Final[int] = 2
+TRANSMIT_COUNT: Final[int] = 1
 assert TRANSMIT_COUNT >= 1
 
 
