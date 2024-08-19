@@ -19,7 +19,7 @@ Then, download the AIS utilities:
 To receive a copy of the neccessary `apate.pl` script, please ask one of the presenters, as we are not distributing this file on GitHub currently.
 
 ## SDR Setup
-The relevant GNURadio code has been tested with Ubuntu 20.04 and Fedora 6.5.12. We strongly recommend Ubuntu 20.04, as this is the distro the `ais-simulator` repository has troubleshooting documentation for.
+The relevant GNURadio code has been tested with Ubuntu 22.04 and Fedora 6.5.12. We strongly recommend Ubuntu 22.04, as this is the distro the `ais-simulator` repository has troubleshooting documentation for.
 
 Navigate to `./ais-simulator/README.md` and follow the initial instructions to install dependencies. Next, navigate to `./ais-simulator/gr-ais_simulator/README.md` and follow the instructions to build the GNURadio AIS blocks. Please refer to troubleshooting steps in the README, and ask for help if stuck.
 
